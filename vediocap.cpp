@@ -7,8 +7,9 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
-#include "opencv2/opencv.hpp"
-//#define MAX 1000
+#include <opencv2/opencv.hpp>
+
+#define MAXN 100
 
 using namespace std;
 using namespace cv;
@@ -21,63 +22,17 @@ int number=0, i;
 {
         printf ("thread1 : I'm thread 1\n");
 
-/*   
-        for (i = 0; i < MAX; i++)
+   
+        for (i = 0; i < MAXN; i++)
         {
                 printf("thread1 : number = %d\n",number);
                 pthread_mutex_lock(&mut);
                         number++;
                 pthread_mutex_unlock(&mut);
-                //sleep(2);
+                sleep(1);
         }
-*/
 
-        // Create a VideoCapture object and use camera to capture the video
-        VideoCapture cap(1); 
-      
-        // Check if camera opened successfully
-        if(!cap.isOpened()){
-         	cout << "Error opening video stream" << endl;
-           
-        }
-        
-        // Default resolutions of the frame are obtained.The default resolutions are system dependent.
-        int frame_width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
-        int frame_height = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-        
-        // Define the codec and create VideoWriter object.The output is stored in 'outcpp.avi' file.
-        VideoWriter video("outcpp.avi",CV_FOURCC('M','J','P','G'),10, Size(frame_width,frame_height));
-      
-        while(1){
-      
-          Mat frame;
-         
-          // Capture frame-by-frame
-          cap >> frame;
-       
-          // If the frame is empty, break immediately
-          if (frame.empty())
-            break;
-          
-          // Write the frame into the file 'outcpp.avi'
-          video.write(frame);
-         
-          // Display the resulting frame    
-          imshow( "Frame", frame );
-       
-          // Press  ESC on keyboard to  exit
-          char c = (char)waitKey(1);
-          if( c == 27 ) 
-            break;
-        }
-      
-        // When everything done, release the video capture and write object
-        cap.release();
-        video.release();
-      
-        // Closes all the frames
-        destroyAllWindows();
-       
+
         printf("thread1:~~~~~\n");
         pthread_exit(NULL);
 }
@@ -86,64 +41,16 @@ int number=0, i;
 {
         printf("thread2 : I'm thread 2\n");
 
-/*  
-        for (i = 0; i < MAX; i++)
+  
+        for (i = 0; i < MAXN; i++)
         {
                 printf("thread2 : number = %d\n",number);
                 pthread_mutex_lock(&mut);
                         number++;
                 pthread_mutex_unlock(&mut);
-                //sleep(3);
+                sleep(1);
         }
-*/
 
-       // Create a VideoCapture object and use camera to capture the video
-        VideoCapture cap(0); 
-      
-        // Check if camera opened successfully
-        if(!cap.isOpened()){
-         	cout << "Error opening video stream" << endl;
-           
-        }
-        
-        // Default resolutions of the frame are obtained.The default resolutions are system dependent.
-        int frame_width = cap.get(CV_CAP_PROP_FRAME_WIDTH);
-        int frame_height = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
-        
-        // Define the codec and create VideoWriter object.The output is stored in 'outcpp.avi' file.
-        VideoWriter video("outcpp1.avi",CV_FOURCC('M','J','P','G'),10, Size(frame_width,frame_height));
-      
-        while(1){
-      
-          Mat frame;
-         
-          // Capture frame-by-frame
-          cap >> frame;
-       
-          // If the frame is empty, break immediately
-          if (frame.empty())
-            break;
-          
-          // Write the frame into the file 'outcpp.avi'
-          video.write(frame);
-         
-          // Display the resulting frame    
-          imshow( "Frame1", frame );
-       
-          // Press  ESC on keyboard to  exit
-          char c = (char)waitKey(1);
-          if( c == 27 ) 
-            break;
-        }
-      
-        // When everything done, release the video capture and write object
-        cap.release();
-        video.release();
-      
-        // Closes all the frames
-        destroyAllWindows();
-       
-       
         printf("thread2 :~~~~~~~~~~~~~~~~\n");
         pthread_exit(NULL);
 }
@@ -152,7 +59,7 @@ void thread_create(void)
 {
         int temp;
         memset(&thread, 0, sizeof(thread));          //comment1
-        /*´´½¨Ïß³Ì*/
+        /*åˆ›å»ºçº¿ç¨‹*/
         if((temp = pthread_create(&thread[0], NULL, thread1, NULL)) != 0)  //comment2     
                 printf("thread1 failure\n");
         else
@@ -166,7 +73,7 @@ void thread_create(void)
 
 void thread_wait(void)
 {
-        /*µÈ´ıÏß³Ì½áÊø*/
+        /*ç­‰å¾…çº¿ç¨‹ç»“æŸ*/
         if(thread[0] !=0)
            {             //comment4    
                 pthread_join(thread[0],NULL);
@@ -182,7 +89,7 @@ void thread_wait(void)
 
 int main()
 {
-        /*ÓÃÄ¬ÈÏÊôĞÔ³õÊ¼»¯»¥³âËø*/
+        /*ç”¨é»˜è®¤å±æ€§åˆå§‹åŒ–äº’æ–¥é”*/
         pthread_mutex_init(&mut,NULL);
 
         printf("Main\n");
@@ -192,4 +99,3 @@ int main()
 
         return 0;
 }
-
