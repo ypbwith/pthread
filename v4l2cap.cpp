@@ -16,6 +16,11 @@
 
 #include <asm/types.h>          
 #include <linux/videodev2.h>  
+#include <iostream>
+#include "opencv2/opencv.hpp"
+
+using namespace std;
+using namespace cv;
   
 #define CAMERA_DEVICE "/dev/video0"  
   
@@ -27,7 +32,10 @@
 #define VIDEO_HEIGHT 480  
 #define VIDEO_FORMAT V4L2_PIX_FMT_YUYV  
 #define BUFFER_COUNT 5  
-  
+
+
+
+
 typedef struct VideoBuffer {  
     void   *start; //视频缓冲区的起始地址  
     size_t  length;//缓冲区的长度  
@@ -97,8 +105,10 @@ void create_bmp_header()
   bih.biXPelsPerMeter = 0x00000ec4;  
   bih.biYPelsPerMeter = 0x00000ec4;  
 }  
-  
-int open_device()  
+
+
+
+int open_device(const char* arg)  
 {  
     /*  
     在linux下设备都是以文件的形式进行管理的  
@@ -107,12 +117,28 @@ int open_device()
     其中fd--就是用户程序打开设备使用open函数返回的文件标识符  
         cmd--就是用户程序对设备的控制命令，至于后面都省略号，有或没有和cmd的意义相关  
     */  
-    int fd;  
-    fd = open(CAMERA_DEVICE, O_RDWR, 0);//  
+    int fd,ret;  
+    fd = open(arg, O_RDWR, 0);//  
+
     if (fd < 0) {  
-        printf("Open %s failed\n", CAMERA_DEVICE);  
+        //printf("Open %s failed\n",arg);  
         return -1;  
     }  
+
+
+
+   //设置曝光绝对值
+    struct v4l2_control ctrl;
+    ctrl.id = V4L2_CID_EXPOSURE;
+    ctrl.value = 10;
+    ret = ioctl(fd, VIDIOC_S_CTRL, &ctrl);
+    if (ret < 0) {
+        printf("Set exposure failed (%d)\n", ret);
+        //return 0;
+    } else
+        printf("Control name:%d set to value:%d\n", fd, ctrl.value);
+
+
     return fd;  
 }  
   
@@ -136,17 +162,17 @@ void get_capability()
     */  
     int ret = ioctl(fd, VIDIOC_QUERYCAP, &cap);  
     if (ret < 0) {  
-        printf("VIDIOC_QUERYCAP failed (%d)\n", ret);  
+        //printf("VIDIOC_QUERYCAP failed (%d)\n", ret);  
         return;  
     }  
     // Print capability infomations  
-    printf("------------VIDIOC_QUERYCAP-----------\n");  
-    printf("Capability Informations:\n");  
-    printf(" driver: %s\n", cap.driver);  
-    printf(" card: %s\n", cap.card);  
-    printf(" bus_info: %s\n", cap.bus_info);  
-    printf(" version: %08X\n", cap.version);  
-    printf(" capabilities: %08X\n\n", cap.capabilities);  
+    //printf("------------VIDIOC_QUERYCAP-----------\n");  
+    //printf("Capability Informations:\n");  
+    //printf(" driver: %s\n", cap.driver);  
+    //printf(" card: %s\n", cap.card);  
+    //printf(" bus_info: %s\n", cap.bus_info);  
+    //printf(" version: %08X\n", cap.version);  
+    //printf(" capabilities: %08X\n\n", cap.capabilities);  
     return;  
 }  
  
@@ -175,8 +201,8 @@ void get_format()
         fmtdesc.index++;  
         ret=ioctl(fd, VIDIOC_ENUM_FMT, &fmtdesc);  
     }  
-    printf("--------VIDIOC_ENUM_FMT---------\n");  
-    printf("get the format what the device support\n{ pixelformat = ''%c%c%c%c'', description = ''%s'' }\n",fmtdesc.pixelformat & 0xFF, (fmtdesc.pixelformat >> 8) & 0xFF, (fmtdesc.pixelformat >> 16) & 0xFF,(fmtdesc.pixelformat >> 24) & 0xFF, fmtdesc.description);  
+    //printf("--------VIDIOC_ENUM_FMT---------\n");  
+    //printf("get the format what the device support\n{ pixelformat = ''%c%c%c%c'', description = ''%s'' }\n",fmtdesc.pixelformat & 0xFF, (fmtdesc.pixelformat >> 8) & 0xFF, (fmtdesc.pixelformat >> 16) & 0xFF,(fmtdesc.pixelformat >> 24) & 0xFF, fmtdesc.description);  
       
     return;  
 }  
@@ -219,7 +245,7 @@ int set_format()
     fmt.fmt.pix.field       = V4L2_FIELD_INTERLACED;  
     int ret = ioctl(fd, VIDIOC_S_FMT, &fmt);  
     if (ret < 0) {  
-        printf("VIDIOC_S_FMT failed (%d)\n", ret);  
+        //printf("VIDIOC_S_FMT failed (%d)\n", ret);  
         return 0;  
     }  
   
@@ -230,11 +256,11 @@ int set_format()
         return ret;  
     }*/  
     // Print Stream Format  
-    printf("------------VIDIOC_S_FMT---------------\n");  
-    printf("Stream Format Informations:\n");  
-    printf(" type: %d\n", fmt.type);  
-    printf(" width: %d\n", fmt.fmt.pix.width);  
-    printf(" height: %d\n", fmt.fmt.pix.height);  
+    //printf("------------VIDIOC_S_FMT---------------\n");  
+    //printf("Stream Format Informations:\n");  
+    //printf(" type: %d\n", fmt.type);  
+    //printf(" width: %d\n", fmt.fmt.pix.width);  
+   // printf(" height: %d\n", fmt.fmt.pix.height);  
 
     char fmtstr[8];  
     memset(fmtstr, 0, 8);  
@@ -244,13 +270,13 @@ int set_format()
     所需头文件include <string.h>  
     */  
     memcpy(fmtstr, &fmt.fmt.pix.pixelformat, 4);  
-    printf(" pixelformat: %s\n", fmtstr);  
-    printf(" field: %d\n", fmt.fmt.pix.field);  
-    printf(" bytesperline: %d\n", fmt.fmt.pix.bytesperline);  
-    printf(" sizeimage: %d\n", fmt.fmt.pix.sizeimage);  
-    printf(" colorspace: %d\n", fmt.fmt.pix.colorspace);  
-    printf(" priv: %d\n", fmt.fmt.pix.priv);  
-    printf(" raw_date: %s\n", fmt.fmt.raw_data);  
+    //printf(" pixelformat: %s\n", fmtstr);  
+    //printf(" field: %d\n", fmt.fmt.pix.field);  
+    //printf(" bytesperline: %d\n", fmt.fmt.pix.bytesperline);  
+    //printf(" sizeimage: %d\n", fmt.fmt.pix.sizeimage);  
+    //printf(" colorspace: %d\n", fmt.fmt.pix.colorspace);  
+    //printf(" priv: %d\n", fmt.fmt.pix.priv);  
+    //printf(" raw_date: %s\n", fmt.fmt.raw_data);  
     return 0;  
 }  
   
@@ -277,10 +303,10 @@ void request_buf()
       
     int ret = ioctl(fd , VIDIOC_REQBUFS, &reqbuf);  
     if(ret < 0) {  
-        printf("VIDIOC_REQBUFS failed (%d)\n", ret);  
+        //printf("VIDIOC_REQBUFS failed (%d)\n", ret);  
         return;  
     }  
-    printf("the buffer has been assigned successfully!\n");  
+    //printf("the buffer has been assigned successfully!\n");  
     return;  
 }  
   
@@ -318,9 +344,11 @@ void query_map_qbuf()
         buf.index = i;  
         buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;  
         buf.memory = V4L2_MEMORY_MMAP;  
+		//printf("buf.m.offset = %d\n",buf.m.offset);
+		//buf.m.offset = 0;
         ret = ioctl(fd , VIDIOC_QUERYBUF, &buf);//buf取得内存缓冲区的信息  
         if(ret < 0) {  
-            printf("VIDIOC_QUERYBUF (%d) failed (%d)\n", i, ret);  
+            //printf("VIDIOC_QUERYBUF (%d) failed (%d)\n", i, ret);  
             return;  
         }  
   
@@ -348,7 +376,7 @@ void query_map_qbuf()
         */  
         framebuf[i].start = (char *) mmap(0, buf.length, PROT_READ|PROT_WRITE, MAP_SHARED, fd, buf.m.offset);  
         if (framebuf[i].start == MAP_FAILED) {  
-            printf("mmap (%d) failed: %s\n", i, strerror(errno));  
+            //printf("mmap (%d) failed: %s\n", i, strerror(errno));  
             return;  
         }  
       
@@ -362,28 +390,59 @@ void query_map_qbuf()
         */  
         ret = ioctl(fd , VIDIOC_QBUF, &buf);  
         if (ret < 0) {  
-            printf("VIDIOC_QBUF (%d) failed (%d)\n", i, ret);  
+            //printf("VIDIOC_QBUF (%d) failed (%d)........\n", i, ret);  
             return;  
         }  
   
   
-        printf("Frame buffer %d: address=0x%x, length=%d\n", i, (unsigned int)framebuf[i].start, framebuf[i].length);  
+        //printf("Frame buffer %d: address=0x%x, length=%d\n", i, (unsigned int)framebuf[i].start, framebuf[i].length);  
     }//空的视频缓冲区都已经在视频缓冲的输入队列中了  
     return;  
 }  
   
+inline int clip(int value, int min, int max) {
+	return (value > max ? max : value < min ? min : value);
+}
+
 void yuyv2rgb()  
 {  
-    unsigned char YUYV[4],RGB[6];  
+    unsigned char RGB[6]; //YUYV[4]
+	int y0,u,y1,v,r,g,b;
     int j,k,i;     
     unsigned int location=0;  
     j=0;  
     for(i=0;i < framebuf[buf.index].length;i+=4)  
     {  
-        YUYV[0]=starter[i];//Y0  
+
+        
+      		y0 = starter[i];
+			u = starter[i + 1] - 128;                
+			y1 = starter[i + 2];        
+			v = starter[i + 3] - 128;        
+
+			r = (298 * y0 + 409 * v + 128) >> 8;
+			g = (298 * y0 - 100 * u - 208 * v + 128) >> 8;
+			b = (298 * y0 + 516 * u + 128) >> 8;
+   
+      		RGB[  0] = clip(b, 0, 255);
+			RGB[  1] = clip(g, 0, 255);
+			RGB[  2] = clip(r, 0, 255); 
+
+			r = (298 * y1 + 409 * v + 128) >> 8;
+			g = (298 * y1 - 100 * u - 208 * v + 128) >> 8;
+			b = (298 * y1 + 516 * u + 128) >> 8;
+      
+      		RGB[  3] = clip(b, 0, 255);
+			RGB[  4] = clip(g, 0, 255);
+			RGB[  5] = clip(r, 0, 255); 
+      
+        /*
+                YUYV[0]=starter[i];//Y0  
         YUYV[1]=starter[i+1];//U  
         YUYV[2]=starter[i+2];//Y1  
         YUYV[3]=starter[i+3];//V  
+        
+        
         if(YUYV[0]<1)  
         {  
             RGB[0]=0;  
@@ -392,7 +451,7 @@ void yuyv2rgb()
         }  
         else  
         {  
-            RGB[0]=YUYV[0]+1.772*(YUYV[1]-128);//b  
+            RGB[0]=YUYV[0]+1.772*(YUYV[1]-128);//b 
             RGB[1]=YUYV[0]-0.34413*(YUYV[1]-128)-0.71414*(YUYV[3]-128);//g  
             RGB[2]=YUYV[0]+1.402*(YUYV[3]-128);//r  
         }  
@@ -411,7 +470,7 @@ void yuyv2rgb()
   
         }  
   
-  
+
         for(k=0;k<6;k++)  
         {  
             if(RGB[k]<0)  
@@ -419,21 +478,24 @@ void yuyv2rgb()
             if(RGB[k]>255)  
                 RGB[k]=255;  
         }  
+  */
   
-  
+        
+
         //请记住：扫描行在位图文件中是反向存储的！  
         if(j%(VIDEO_WIDTH*3)==0)//定位存储位置  
         {  
-            location=(VIDEO_HEIGHT-j/(VIDEO_WIDTH*3))*(VIDEO_WIDTH*3);  
+            location=(j/(VIDEO_WIDTH*3))*(VIDEO_WIDTH*3);  
         }  
         bcopy(RGB,newBuf+location+(j%(VIDEO_WIDTH*3)),sizeof(RGB));  
-  
-  
+        //printf("%d %d %d %d %d %d   ",RGB[0],RGB[1],RGB[2],RGB[3],RGB[4],RGB[5]);
+		
         j+=6;         
     }  
     return;  
 }  
-  
+
+
 void move_noise()  
 {//双滤波器  
     int i,j,k,temp[3],temp1[3];  
@@ -570,12 +632,12 @@ void store_yuyv()
 {  
     FILE *fp = fopen(CAPTURE_FILE, "wb");  
     if (fp < 0) {  
-        printf("open frame data file failed\n");  
+        //printf("open frame data file failed\n");  
         return;  
     }  
     fwrite(framebuf[buf.index].start, 1, buf.length, fp);  
     fclose(fp);  
-    printf("Capture one frame saved in %s\n", CAPTURE_FILE);  
+    //printf("Capture one frame saved in %s\n", CAPTURE_FILE);  
     return;  
 }  
   
@@ -583,38 +645,40 @@ void store_bmp(int n_len)
 {  
     FILE *fp1 = fopen(CAPTURE_RGB_FILE, "wb");  
     if (fp1 < 0) {  
-        printf("open frame data file failed\n");  
+       //printf("open frame data file failed\n");  
         return;  
     }  
     fwrite(&bfh,sizeof(bfh),1,fp1);  
     fwrite(&bih,sizeof(bih),1,fp1);  
     fwrite(newBuf, 1, n_len, fp1);  
     fclose(fp1);  
-    printf("Change one frame saved in %s\n", CAPTURE_RGB_FILE);  
+    //printf("Change one frame saved in %s\n", CAPTURE_RGB_FILE);  
     return;  
 }  
   
-int main()  
+int main(int argc,const char* argv[])  
 {  
+    
     int i, ret;  
 
-    // 打开设备  
-    fd=open_device();  
+
+    fd=open_device(argv[1]); //    CAMERA_DEVICE
+    //fd=open_device(CAMERA_DEVICE); 
       
     // 获取驱动信息  
     //struct v4l2_capability cap;  
-    get_capability();  
+    //get_capability();  
      
     //获取当前视频设备支持的视频格式  
     //struct v4l2_fmtdesc fmtdesc;  
-    memset(&fmtdesc,0,sizeof(fmtdesc));  
-    get_format();  
+   // memset(&fmtdesc,0,sizeof(fmtdesc));  
+    //get_format();  
       
     // 设置视频格式  
     //struct v4l2_format fmt;  
     //memset在一段内存块中填充某个给定的值，它是对较大的结构体或数组进行清零操作的一种最快的方法  
-    memset(&fmt, 0, sizeof(fmt));//将fmt中的前sizeof(fmt)字节用0替换并返回fmt  
-    set_format();  
+    //memset(&fmt, 0, sizeof(fmt));//将fmt中的前sizeof(fmt)字节用0替换并返回fmt  
+    //set_format();  
       
     // 请求分配内存  
     //struct v4l2_requestbuffers reqbuf;  
@@ -652,7 +716,7 @@ int main()
     */  
     ret = ioctl(fd, VIDIOC_STREAMON, &type);  
     if (ret < 0) {  
-        printf("VIDIOC_STREAMON failed (%d)\n", ret);  
+        //printf("VIDIOC_STREAMON failed (%d)\n", ret);  
         return ret;  
     }  
   
@@ -668,9 +732,11 @@ int main()
     说明: VIDIOC_DQBUF命令结果, 使从队列删除的缓冲帧信息传给了此buf  
     V4L2_buffer结构体的作用就相当于申请的缓冲帧的代理，找缓冲帧的都要先问问它，通过它来联系缓冲帧，起了中间桥梁的作用  
     */  
+    namedWindow("one");
+      while(1){
     ret = ioctl(fd, VIDIOC_DQBUF, &buf);//VIDIOC_DQBUF命令结果, 使从队列删除的缓冲帧信息传给了此buf  
     if (ret < 0) {  
-        printf("VIDIOC_DQBUF failed (%d)\n", ret);  
+        //printf("VIDIOC_DQBUF failed (%d)\n", ret);  
         return ret;  
     }  
   
@@ -685,41 +751,76 @@ int main()
     （2）循环读取buf内存段的内容，进行转换，转换后放入到新开辟的内存区域中  
     （3）将新开辟出来的内存区的内容读到文件中  
     */  
-    printf("********************************************\n");  
+    //printf("********************************************\n");  
     int n_len;  
     n_len=framebuf[buf.index].length*3/2;  
     newBuf=(unsigned char*)calloc((unsigned int)n_len,sizeof(unsigned char));  
     
     if(!newBuf)  
     {  
-        printf("cannot assign the memory !\n");  
+        //printf("cannot assign the memory !\n");  
         exit(0);  
     }  
   
   
-    printf("the information about the new buffer:\n start Address:0x%x,length=%d\n\n",(unsigned int)newBuf,n_len);  
+    //printf("the information about the new buffer:\n start Address:0x%x,length=%d\n\n",(unsigned int)newBuf,n_len);  
   
   
-    printf("----------------------------------\n");  
+    //printf("----------------------------------\n");  
       
     //YUYV to RGB  
     starter=(unsigned char *)framebuf[buf.index].start;  
     yuyv2rgb();//还是这个采集的图片的效果比较好  
-    move_noise();  
+    // move_noise(); 
+    
+    //--------------------------------------------------------------------------------------------------------
+    
+      Mat img;
+    img=imread("frame_rgb_new.bmp");
+    // img.data =  newBuf;
+   // printf("%d",n_len);
+    for(int i=0;i< n_len;i++)
+    {
+    
+   //printf("%d ",newBuf[i]); 
+    }
+
+	Mat my_img(480,640,CV_8UC3,newBuf);
+	
+	
     //yuyv2rgb1();  
     //设置bmp文件的头和bmp文件的一些信息  
-    create_bmp_header();  
+    //create_bmp_header();  
       
-    store_bmp(n_len);  
+    //store_bmp(n_len);  
       
-      
+  
+ /*    for(int i=0;i<n_len- sizeof(bfh)-sizeof(bih);i++)
+    {
+    
+          //printf("%d ",img.data[i]); 
+    }*/
+    //printf("abc~~~~~~~~~~\n\n------------------------------------------------------------------\n");
+    //printf("%d    \n  %d    \n",img.size().width*img.size().height*3,n_len);
+    
+    
+    imshow("one",my_img);
+    //waitKey(0);
+    int k = waitKey(1);
+            if (k == 27)           
+             {                
+               break;            
+             }
+    
+    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     // Re-queen buffer  
     ret = ioctl(fd, VIDIOC_QBUF, &buf);  
     if (ret < 0) {  
-        printf("VIDIOC_QBUF failed (%d)\n", ret);  
+        //printf("VIDIOC_QBUF failed (%d)\n", ret);  
         return ret;  
     }  
-    printf("re-queen buffer end\n");  
+    //printf("re-queen buffer end\n"); 
+        }    
     // Release the resource  
     /*  
     表头文件 #include<unistd.h>  
@@ -733,12 +834,18 @@ int main()
       
         munmap(framebuf[i].start, framebuf[i].length);  
     }  
+    
+
     //free(starter);  
-    printf("free starter end\n");  
+    //printf("free starter end\n");  
     //free(newBuf);  
-    printf("free newBuf end\n");  
+    //printf("free newBuf end\n");  
     close(fd);  
 
-    printf("Camera test Done.\n");  
+    //printf("Camera test Done.\n");  
+ 
+
+    
     return 0;  
 }  
+
